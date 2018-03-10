@@ -17,7 +17,7 @@ import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.system.MemoryUtil.NULL;
 
 public class Camera extends Thread {
-	private static float pi = (float)Math.PI;
+  private static float pi = (float)Math.PI;
   private static float pi2 = pi * 2;
   private static float pih = pi / 2;
   private static float cursorSpeed = 3;
@@ -55,58 +55,58 @@ public class Camera extends Thread {
   float[] rotationYMat = Matrix.identity();
   
   public Camera(Entity ent) {
-  	this.world = ent.world;
-  	this.ent = ent;
+    this.world = ent.world;
+    this.ent = ent;
   }
   
   private void initGL() {
- 		GLFWErrorCallback.createPrint(System.err).set();
+     GLFWErrorCallback.createPrint(System.err).set();
 
- 		if (!glfwInit())
- 			throw new IllegalStateException("Unable to initialize GLFW");
+     if (!glfwInit())
+       throw new IllegalStateException("Unable to initialize GLFW");
 
- 		glfwDefaultWindowHints();
- 		glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
- 		glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
+     glfwDefaultWindowHints();
+     glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
+     glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
 
- 		window = glfwCreateWindow(w, h, "Land", glfwGetPrimaryMonitor(), NULL);
- 		if ( window == NULL )
- 			throw new RuntimeException("Failed to create the GLFW window");
- 		
- 		glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
+     window = glfwCreateWindow(w, h, "Land", glfwGetPrimaryMonitor(), NULL);
+     if ( window == NULL )
+       throw new RuntimeException("Failed to create the GLFW window");
+     
+     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
 
- 		try ( MemoryStack stack = stackPush() ) {
- 			IntBuffer pWidth = stack.mallocInt(1);
- 			IntBuffer pHeight = stack.mallocInt(1);
+     try ( MemoryStack stack = stackPush() ) {
+       IntBuffer pWidth = stack.mallocInt(1);
+       IntBuffer pHeight = stack.mallocInt(1);
 
- 			glfwGetWindowSize(window, pWidth, pHeight);
+       glfwGetWindowSize(window, pWidth, pHeight);
 
- 			GLFWVidMode vidmode = glfwGetVideoMode(glfwGetPrimaryMonitor());
+       GLFWVidMode vidmode = glfwGetVideoMode(glfwGetPrimaryMonitor());
 
- 			glfwSetWindowPos(
- 				window,
- 				(vidmode.width() - pWidth.get(0)) / 2,
- 				(vidmode.height() - pHeight.get(0)) / 2
- 			);
- 		}
+       glfwSetWindowPos(
+         window,
+         (vidmode.width() - pWidth.get(0)) / 2,
+         (vidmode.height() - pHeight.get(0)) / 2
+       );
+     }
 
- 		glfwMakeContextCurrent(window);
- 		glfwSwapInterval(1);
+     glfwMakeContextCurrent(window);
+     glfwSwapInterval(1);
 
- 		glfwShowWindow(window);
- 		GL.createCapabilities();
+     glfwShowWindow(window);
+     GL.createCapabilities();
   }
   
   private void init() {
-  	String vs = "";
-  	String fs = "";
-  	
-		try {
-			vs = new String(Files.readAllBytes(Paths.get("src/land/shaders/vs.glsl")));
-			fs = new String(Files.readAllBytes(Paths.get("src/land/shaders/fs.glsl")));
-		} catch (IOException e) {}
-  	
-  	glEnable(GL_DEPTH_TEST);
+    String vs = "";
+    String fs = "";
+    
+    try {
+      vs = new String(Files.readAllBytes(Paths.get("src/land/shaders/vs.glsl")));
+      fs = new String(Files.readAllBytes(Paths.get("src/land/shaders/fs.glsl")));
+    } catch (IOException e) {}
+    
+    glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LEQUAL);
 
     glViewport(0, 0, w, h);
@@ -138,7 +138,7 @@ public class Camera extends Thread {
       0, 1 / fovt, 0, 0,
       0, 0, -(far + near) / (far - near), -1,
       0, 0, -2 * far * near / (far - near), 0
-  	});
+    });
     
     glUniformMatrix4fv(uniforms[0], false, translationMat);
     
@@ -150,143 +150,143 @@ public class Camera extends Thread {
   }
   
   private void processInput() {
-  	if(glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) dir |= 1;
-  	else dir &= ~1;
-  	
-  	if(glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) dir |= 2;
-  	else dir &= ~2;
-  	
-  	if(glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) dir |= 4;
-  	else dir &= ~4;
-  	
-  	if(glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) dir |= 8;
-  	else dir &= ~8;
-  	
-  	if(glfwGetKey(window, GLFW_KEY_G) == GLFW_PRESS) {
-  		world.chunks[0].generate();
-  	}
-  	
-  	if(glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
-  		glfwSetWindowShouldClose(window, true);
-  	}
-  	
-  	double[] cx = new double[1];
-  	double[] cy = new double[1];
-  	glfwGetCursorPos(window, cx, cy);
-  	
-  	ent.rx = (float)Math.max(Math.min(ent.rx + (cy[0] - hh) * cursorSpeed / h, pih), -pih);
+    if(glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) dir |= 1;
+    else dir &= ~1;
+    
+    if(glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) dir |= 2;
+    else dir &= ~2;
+    
+    if(glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) dir |= 4;
+    else dir &= ~4;
+    
+    if(glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) dir |= 8;
+    else dir &= ~8;
+    
+    if(glfwGetKey(window, GLFW_KEY_G) == GLFW_PRESS) {
+      world.chunks[0].generate();
+    }
+    
+    if(glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
+      glfwSetWindowShouldClose(window, true);
+    }
+    
+    double[] cx = new double[1];
+    double[] cy = new double[1];
+    glfwGetCursorPos(window, cx, cy);
+    
+    ent.rx = (float)Math.max(Math.min(ent.rx + (cy[0] - hh) * cursorSpeed / h, pih), -pih);
     ent.ry = (float)((ent.ry - (cx[0] - wh) * cursorSpeed / w) % pi2);
-  	
-  	glfwSetCursorPos(window, wh, hh);
+    
+    glfwSetCursorPos(window, wh, hh);
   }
 
   public void run() {
-  	enabled = true;
-  	
-  	initGL();
-  	init();
-  	
-  	ready = true;
-  	
-		glClearColor(0f, 0f, 0f, 1f);
-		
-		while (!glfwWindowShouldClose(window)) {
-			glfwPollEvents();
-			
-			processInput();
-			
-			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    enabled = true;
+    
+    initGL();
+    init();
+    
+    ready = true;
+    
+    glClearColor(0f, 0f, 0f, 1f);
+    
+    while (!glfwWindowShouldClose(window)) {
+      glfwPollEvents();
+      
+      processInput();
+      
+      glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	    if(dir != 0) {
-	      float sp = (dir & 16) != 0 ? speed * .1f : speed;
-	      float x, y, z;
+      if(dir != 0) {
+        float sp = (dir & 16) != 0 ? speed * .1f : speed;
+        float x, y, z;
 
-	      if((dir & 3) != 0) {
-	        x = (float)(sp * Math.cos(ent.rx) * Math.sin(ent.ry));
-	        y = (float)(sp * Math.sin(ent.rx));
-	        z = (float)(sp * Math.cos(ent.rx) * Math.cos(ent.ry));
+        if((dir & 3) != 0) {
+          x = (float)(sp * Math.cos(ent.rx) * Math.sin(ent.ry));
+          y = (float)(sp * Math.sin(ent.rx));
+          z = (float)(sp * Math.cos(ent.rx) * Math.cos(ent.ry));
 
-	        if((dir & 1) != 0) {
-	        	ent.x -= x;
-	        	ent.y -= y;
-	        	ent.z -= z;
-	        }
-	        
-	        if((dir & 2) != 0) {
-	        	ent.x += x;
-	        	ent.y += y;
-	        	ent.z += z;
-	        }
-	      }
+          if((dir & 1) != 0) {
+            ent.x -= x;
+            ent.y -= y;
+            ent.z -= z;
+          }
+          
+          if((dir & 2) != 0) {
+            ent.x += x;
+            ent.y += y;
+            ent.z += z;
+          }
+        }
 
-	      if((dir & 12) != 0) {
-	        x = (float)(sp * Math.sin(ent.ry));
-	        z = (float)(sp * Math.cos(ent.ry));
+        if((dir & 12) != 0) {
+          x = (float)(sp * Math.sin(ent.ry));
+          z = (float)(sp * Math.cos(ent.ry));
 
-	        if((dir & 4) != 0) {
-	        	ent.x -= z;
-	        	ent.z += x;
-	        }
-	        
-	        if((dir & 8) != 0) {
-	        	ent.x += z;
-	        	ent.z -= x;
-	        }
-	      }
-	    }
-	      
+          if((dir & 4) != 0) {
+            ent.x -= z;
+            ent.z += x;
+          }
+          
+          if((dir & 8) != 0) {
+            ent.x += z;
+            ent.z -= x;
+          }
+        }
+      }
+        
       translationMat[12] = -ent.x;
       translationMat[13] = -ent.y;
       translationMat[14] = -ent.z;
 
       glUniformMatrix4fv(uniforms[0], false, translationMat);
-	    
-	    rotationXMat[9] = -(rotationXMat[6] = (float)Math.sin(ent.rx));
-	    rotationXMat[5] = rotationXMat[10] = (float)Math.cos(ent.rx);
+      
+      rotationXMat[9] = -(rotationXMat[6] = (float)Math.sin(ent.rx));
+      rotationXMat[5] = rotationXMat[10] = (float)Math.cos(ent.rx);
 
-	    glUniformMatrix4fv(uniforms[1], false, rotationXMat);
-	    
-	    rotationYMat[8] = -(rotationYMat[2] = (float)Math.sin(ent.ry));
-	    rotationYMat[0] = rotationYMat[10] = (float)Math.cos(ent.ry);
+      glUniformMatrix4fv(uniforms[1], false, rotationXMat);
+      
+      rotationYMat[8] = -(rotationYMat[2] = (float)Math.sin(ent.ry));
+      rotationYMat[0] = rotationYMat[10] = (float)Math.cos(ent.ry);
 
-	    glUniformMatrix4fv(uniforms[2], false, rotationYMat);
-	    
-	    drawChunks();
-	    
-	    glfwSwapBuffers(window);
-		}
-		
-  	glfwFreeCallbacks(window);
-  	glfwDestroyWindow(window);
+      glUniformMatrix4fv(uniforms[2], false, rotationYMat);
+      
+      drawChunks();
+      
+      glfwSwapBuffers(window);
+    }
+    
+    glfwFreeCallbacks(window);
+    glfwDestroyWindow(window);
 
-  	glfwTerminate();
-  	glfwSetErrorCallback(null).free();
-  	
-  	glDeleteShader(vShader);
-  	glDeleteShader(fShader);
-  	glDeleteProgram(program);
-  	
-  	world.dispose();
-  	
-  	enabled = false;
+    glfwTerminate();
+    glfwSetErrorCallback(null).free();
+    
+    glDeleteShader(vShader);
+    glDeleteShader(fShader);
+    glDeleteProgram(program);
+    
+    world.dispose();
+    
+    enabled = false;
   }
   
   private void drawChunks() {
-  	Chunk[] chunks = world.chunks;
-  	if(chunks == null) return;
-  	
-  	for(int i = 0; i < chunks.length; i++) {
-  		Chunk chunk = chunks[i];
-  		
-  		if(chunk == null) {
-  			continue;
-  		}
-  		
-  		if(!chunk.hasBuffs) {
-  			chunk.initBuffs();
-  		}
-  		
-  		chunk.draw();
-  	}
+    Chunk[] chunks = world.chunks;
+    if(chunks == null) return;
+    
+    for(int i = 0; i < chunks.length; i++) {
+      Chunk chunk = chunks[i];
+      
+      if(chunk == null) {
+        continue;
+      }
+      
+      if(!chunk.hasBuffs) {
+        chunk.initBuffs();
+      }
+      
+      chunk.draw();
+    }
   }
 }
