@@ -4,17 +4,19 @@ import java.util.ArrayList;
 
 import static org.lwjgl.opengl.GL11.*;
 import static org.lwjgl.opengl.GL15.*;
-import static org.lwjgl.opengl.GL20.glEnableVertexAttribArray;
-import static org.lwjgl.opengl.GL20.glVertexAttribPointer;
+import static org.lwjgl.opengl.GL20.*;
 
 public class Chunk {
   public World world;
   public Camera camera;
   
   public int x, z;
+  public int x1, x2, z1, z2;
   public boolean ready;
   public boolean hasBuffs;
   public boolean hasFaces;
+  public boolean missingX = true;
+  public boolean missingZ = true;
   
   public short[] blocks = new short[World.chunkSize];
   
@@ -34,10 +36,18 @@ public class Chunk {
     
     this.x = x;
     this.z = z;
+    
+    x1 = x * World.chunkWidth;
+    x2 = x1 + World.chunkWidth;
+    
+    z1 = z * World.chunkWidth;
+    z2 = z1 + World.chunkWidth;
   }
   
   public void generate() {
-    this.ready = false;
+    ready = false;
+    missingX = true;
+    missingZ = true;
     
     ChunkGenerator generator = new ChunkGenerator(this);
     generator.start();
@@ -58,91 +68,84 @@ public class Chunk {
   public void draw() {
     if(!ready) return;
     
+    if((missingX && world.getBlock(x1 - 1, 0, z1) != -1) || (missingZ && world.getBlock(x1, 0, z1 - 1) != -1)) {
+      updateAllFaces();
+    }
+    
     updateBuffs();
     
-    glDrawArrays(GL_TRIANGLES, 0, buffLen);
+    glDrawArrays(GL_QUADS, 0, buffLen);
   }
   
   public void updateAllFaces() {
     buffLen = 0;
     
-    int z1 = this.z * World.chunkWidth;
-    int z2 = z1 + World.chunkWidth;
-    
-    int x1 = this.x * World.chunkWidth;
-    int x2 = x1 + World.chunkWidth;
+    missingX = world.getBlock(x1 - 1, 0, z1) == -1;
+    missingZ = world.getBlock(x1, 0, z1 - 1) == -1;
     
     for(int y = 0, i = 0; y < World.chunkHeight; y++) {
       for(int z = z1; z < z2; z++) {
         for(int x = x1; x < x2; x++, i++) {
-          int iy = i - World.chunkWidthSquared;
-          int iz = i - World.chunkWidth;
-          int ix = i - 1;
+          short block = blocks[i];
           
-          if((y == 0 && blocks[i] != 0) ||
-             (y != 0 && blocks[i] == 0 && blocks[iy] != 0) ||
-             (y != 0 && blocks[i] != 0 && blocks[iy] == 0)) {
+          short adjY = y != 0 ? blocks[i - World.chunkWidthSquared] : -1;
+          short adjZ = z != z1 ? blocks[i - World.chunkWidth] : world.getBlock(x, y, z - 1);
+          short adjX = x != x1 ? blocks[i - 1] : world.getBlock(x - 1, y, z);
+          
+          float red, green, blue;
+          
+          if(adjY != -1 && ((block != 0 && adjY == 0) || (block == 0 && adjY != 0))) {
             vFaces[buffLen] = x; vFaces[buffLen + 1] = y; vFaces[buffLen + 2] = z;
             vFaces[buffLen + 3] = x + 1; vFaces[buffLen + 4] = y; vFaces[buffLen + 5] = z;
-            vFaces[buffLen + 6] = x; vFaces[buffLen + 7] = y; vFaces[buffLen + 8] = z + 1;
+            vFaces[buffLen + 6] = x + 1; vFaces[buffLen + 7] = y; vFaces[buffLen + 8] = z + 1;
+            vFaces[buffLen + 9] = x; vFaces[buffLen + 10] = y; vFaces[buffLen + 11] = z + 1;
             
-            vFaces[buffLen + 9] = x + 1; vFaces[buffLen + 10] = y; vFaces[buffLen + 11] = z + 1;
-            vFaces[buffLen + 12] = x + 1; vFaces[buffLen + 13] = y; vFaces[buffLen + 14] = z;
-            vFaces[buffLen + 15] = x; vFaces[buffLen + 16] = y; vFaces[buffLen + 17] = z + 1;
+            red = (float)(Math.random() * .1);
+            green = (float)(Math.random() * .5 + .5);
+            blue = (float)(Math.random() * .1);
             
-            cFaces[buffLen] = 1; cFaces[buffLen + 1] = 1; cFaces[buffLen + 2] = 0;
-            cFaces[buffLen + 3] = 1; cFaces[buffLen + 4] = 1; cFaces[buffLen + 5] = 0;
-            cFaces[buffLen + 6] = 1; cFaces[buffLen + 7] = 1; cFaces[buffLen + 8] = 0;
-
-            cFaces[buffLen + 9] = 1; cFaces[buffLen + 10] = 1; cFaces[buffLen + 11] = 0;
-            cFaces[buffLen + 12] = 1; cFaces[buffLen + 13] = 1; cFaces[buffLen + 14] = 0;
-            cFaces[buffLen + 15] = 1; cFaces[buffLen + 16] = 1; cFaces[buffLen + 17] = 0;
+            cFaces[buffLen] = red; cFaces[buffLen + 1] = green; cFaces[buffLen + 2] = blue;
+            cFaces[buffLen + 3] = red; cFaces[buffLen + 4] = green; cFaces[buffLen + 5] = blue;
+            cFaces[buffLen + 6] = red; cFaces[buffLen + 7] = green; cFaces[buffLen + 8] = blue;
+            cFaces[buffLen + 9] = red; cFaces[buffLen + 10] = green; cFaces[buffLen + 11] = blue;
             
-            buffLen += 18;
+            buffLen += 12;
           }
           
-          if((z == z1 && blocks[i] != 0) ||
-             (z != z1 && blocks[i] == 0 && blocks[iz] != 0) ||
-             (z != z1 && blocks[i] != 0 && blocks[iz] == 0)) {
+          if(adjZ != -1 && ((block != 0 && adjZ == 0) || (block == 0 && adjZ != 0))) {
               vFaces[buffLen] = x; vFaces[buffLen + 1] = y; vFaces[buffLen + 2] = z;
               vFaces[buffLen + 3] = x + 1; vFaces[buffLen + 4] = y; vFaces[buffLen + 5] = z;
-              vFaces[buffLen + 6] = x; vFaces[buffLen + 7] = y + 1; vFaces[buffLen + 8] = z;
+              vFaces[buffLen + 6] = x + 1; vFaces[buffLen + 7] = y + 1; vFaces[buffLen + 8] = z;
+              vFaces[buffLen + 9] = x; vFaces[buffLen + 10] = y + 1; vFaces[buffLen + 11] = z;
               
-              vFaces[buffLen + 9] = x + 1; vFaces[buffLen + 10] = y + 1; vFaces[buffLen + 11] = z;
-              vFaces[buffLen + 12] = x + 1; vFaces[buffLen + 13] = y; vFaces[buffLen + 14] = z;
-              vFaces[buffLen + 15] = x; vFaces[buffLen + 16] = y + 1; vFaces[buffLen + 17] = z;
+              red = (float)(Math.random() * .1 + .2);
+              green = (float)(Math.random() * .02);
+              blue = (float)(Math.random() * .02);
               
-              cFaces[buffLen] = 0; cFaces[buffLen + 1] = 1; cFaces[buffLen + 2] = 0;
-              cFaces[buffLen + 3] = 0; cFaces[buffLen + 4] = 1; cFaces[buffLen + 5] = 0;
-              cFaces[buffLen + 6] = 0; cFaces[buffLen + 7] = 1; cFaces[buffLen + 8] = 0;
-
-              cFaces[buffLen + 9] = 0; cFaces[buffLen + 10] = 1; cFaces[buffLen + 11] = 0;
-              cFaces[buffLen + 12] = 0; cFaces[buffLen + 13] = 1; cFaces[buffLen + 14] = 0;
-              cFaces[buffLen + 15] = 0; cFaces[buffLen + 16] = 1; cFaces[buffLen + 17] = 0;
+              cFaces[buffLen] = red; cFaces[buffLen + 1] = green; cFaces[buffLen + 2] = blue;
+              cFaces[buffLen + 3] = red; cFaces[buffLen + 4] = green; cFaces[buffLen + 5] = blue;
+              cFaces[buffLen + 6] = red; cFaces[buffLen + 7] = green; cFaces[buffLen + 8] = blue;
+              cFaces[buffLen + 9] = red; cFaces[buffLen + 10] = green; cFaces[buffLen + 11] = blue;
               
-              buffLen += 18;
+              buffLen += 12;
           }
           
-          if((x == x1 && blocks[i] != 0) ||
-             (x != x1 && blocks[i] == 0 && blocks[ix] != 0) ||
-             (x != x1 && blocks[i] != 0 && blocks[ix] == 0)) {
+          if(adjX != -1 && ((block != 0 && adjX == 0) || (block == 0 && adjX != 0))) {
               vFaces[buffLen] = x; vFaces[buffLen + 1] = y; vFaces[buffLen + 2] = z;
               vFaces[buffLen + 3] = x; vFaces[buffLen + 4] = y + 1; vFaces[buffLen + 5] = z;
-              vFaces[buffLen + 6] = x; vFaces[buffLen + 7] = y; vFaces[buffLen + 8] = z + 1;
+              vFaces[buffLen + 6] = x; vFaces[buffLen + 7] = y + 1; vFaces[buffLen + 8] = z + 1;
+              vFaces[buffLen + 9] = x; vFaces[buffLen + 10] = y; vFaces[buffLen + 11] = z + 1;
               
-              vFaces[buffLen + 9] = x; vFaces[buffLen + 10] = y + 1; vFaces[buffLen + 11] = z + 1;
-              vFaces[buffLen + 12] = x; vFaces[buffLen + 13] = y + 1; vFaces[buffLen + 14] = z;
-              vFaces[buffLen + 15] = x; vFaces[buffLen + 16] = y; vFaces[buffLen + 17] = z + 1;
+              red = (float)(Math.random() * .1 + .2);
+              green = (float)(Math.random() * .02);
+              blue = (float)(Math.random() * .02);
               
-              cFaces[buffLen] = 0; cFaces[buffLen + 1] = 1; cFaces[buffLen + 2] = 1;
-              cFaces[buffLen + 3] = 0; cFaces[buffLen + 4] = 1; cFaces[buffLen + 5] = 1;
-              cFaces[buffLen + 6] = 0; cFaces[buffLen + 7] = 1; cFaces[buffLen + 8] = 1;
-
-              cFaces[buffLen + 9] = 0; cFaces[buffLen + 10] = 1; cFaces[buffLen + 11] = 1;
-              cFaces[buffLen + 12] = 0; cFaces[buffLen + 13] = 1; cFaces[buffLen + 14] = 1;
-              cFaces[buffLen + 15] = 0; cFaces[buffLen + 16] = 1; cFaces[buffLen + 17] = 1;
+              cFaces[buffLen] = red; cFaces[buffLen + 1] = green; cFaces[buffLen + 2] = blue;
+              cFaces[buffLen + 3] = red; cFaces[buffLen + 4] = green; cFaces[buffLen + 5] = blue;
+              cFaces[buffLen + 6] = red; cFaces[buffLen + 7] = green; cFaces[buffLen + 8] = blue;
+              cFaces[buffLen + 9] = red; cFaces[buffLen + 10] = green; cFaces[buffLen + 11] = blue;
               
-              buffLen += 18;
+              buffLen += 12;
           }
         }
       }

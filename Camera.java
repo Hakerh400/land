@@ -44,7 +44,7 @@ public class Camera extends Thread {
   private float near = 1e-3f;
   private float far = 1e3f;
 
-  private float speed = .1f;
+  private float speed = .5f;
   private int dir = 0;
   
   public int attribPos, attribCol;
@@ -162,10 +162,6 @@ public class Camera extends Thread {
     if(glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) dir |= 8;
     else dir &= ~8;
     
-    if(glfwGetKey(window, GLFW_KEY_G) == GLFW_PRESS) {
-      world.chunks[0].generate();
-    }
-    
     if(glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
       glfwSetWindowShouldClose(window, true);
     }
@@ -272,15 +268,10 @@ public class Camera extends Thread {
   }
   
   private void drawChunks() {
-    Chunk[] chunks = world.chunks;
-    if(chunks == null) return;
     
-    for(int i = 0; i < chunks.length; i++) {
-      Chunk chunk = chunks[i];
-      
-      if(chunk == null) {
-        continue;
-      }
+    for(int i = 0; i < world.chunks.size(); i++) {
+      Chunk chunk = world.chunks.get(i);
+      if(chunk == null) continue;
       
       if(!chunk.hasBuffs) {
         chunk.initBuffs();

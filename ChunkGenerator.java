@@ -12,15 +12,20 @@ public class ChunkGenerator extends Thread {
   public void run() {
     short[] blocks = chunk.blocks;
     
+    int z1 = chunk.z * World.chunkWidth;
+    int z2 = z1 + World.chunkWidth;
+    
+    int x1 = chunk.x * World.chunkWidth;
+    int x2 = x1 + World.chunkWidth;
+    
     for(int y = 0, i = 0; y < World.chunkHeight; y++) {
-      for(int z = 0; z < World.chunkWidth; z++) {
-        for(int x = 0; x < World.chunkWidth; x++, i++) {
-          if(y >= 100) {
-            blocks[i] = 0;
-            continue;
-          }
+      for(int z = z1; z < z2; z++) {
+        for(int x = x1; x < x2; x++, i++) {
+          double xx = Math.sin(x / 17.) * 5 + Math.cos(x / 25.) * 4;
+          double zz = Math.cos(z / 19.) * 8 + Math.sin(z / 23.) * 2.7;
+          int k = (int)Math.round(100. + xx + zz);
           
-          blocks[i] = (short)(Math.random() > (y / 100f) ? 1 : 0);
+          blocks[i] = (short)(y < k ? 1 : 0);
         }
       }
     }
