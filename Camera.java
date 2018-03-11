@@ -1,6 +1,7 @@
 package land;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -15,6 +16,7 @@ import static org.lwjgl.opengl.GL11.*;
 import static org.lwjgl.opengl.GL20.*;
 import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.system.MemoryUtil.NULL;
+import static org.lwjgl.stb.STBImage.*;
 
 public class Camera extends Thread {
   private static float pi = (float)Math.PI;
@@ -47,12 +49,21 @@ public class Camera extends Thread {
   private float speed = .5f;
   private int dir = 0;
   
-  public int attribPos, attribCol;
-  public int[] uniforms = new int[4];
+  public int attribPos;
+  public int attribText;
   
-  float[] translationMat = Matrix.identity();
-  float[] rotationXMat = Matrix.identity();
-  float[] rotationYMat = Matrix.identity();
+  private int uniformProjection;
+  private int uniformTranslation;
+  private int uniformRotationX;
+  private int uniformRotationY;
+  private int uniformViewDist;
+  private int uniformFogCol;
+  
+  private float[] translationMat = Matrix.identity();
+  private float[] rotationXMat = Matrix.identity();
+  private float[] rotationYMat = Matrix.identity();
+  private float viewDist = far;
+  private float[] fogCol = new float[] {.4f, .7f, .7f};
   
   public Camera(Entity ent) {
     this.world = ent.world;
@@ -110,7 +121,7 @@ public class Camera extends Thread {
     glDepthFunc(GL_LEQUAL);
 
     glViewport(0, 0, w, h);
-    glClearColor(0f, 0f, 0f, 1f);
+    glClearColor(fogCol[0], fogCol[1], fogCol[2], 1f);
 
     vShader = glCreateShader(GL_VERTEX_SHADER);
     glShaderSource(vShader, new StringBuilder(vs));
@@ -128,25 +139,53 @@ public class Camera extends Thread {
     glLinkProgram(program);
     glUseProgram(program);
 
-    uniforms[0] = glGetUniformLocation(program, "translation");
-    uniforms[1] = glGetUniformLocation(program, "rotationX");
-    uniforms[2] = glGetUniformLocation(program, "rotationY");
-    uniforms[3] = glGetUniformLocation(program, "projection");
+    uniformProjection = glGetUniformLocation(program, "projection");
+    uniformTranslation = glGetUniformLocation(program, "translation");
+    uniformRotationX = glGetUniformLocation(program, "rotationX");
+    uniformRotationY = glGetUniformLocation(program, "rotationY");
     
-    glUniformMatrix4fv(uniforms[3], false, new float[] {
-      1 / (aspectRatio * fovt), 0, 0, 0,
+    uniformViewDist = glGetUniformLocation(program, "viewDist");
+    uniformFogCol = glGetUniformLocation(program, "fogCol");
+    
+    glUniformMatrix4fv(uniformProjection, false, new float[] {
+      1 / aspectRatio, 0, 0, 0,
       0, 1 / fovt, 0, 0,
       0, 0, -(far + near) / (far - near), -1,
       0, 0, -2 * far * near / (far - near), 0
     });
     
-    glUniformMatrix4fv(uniforms[0], false, translationMat);
+    glUniformMatrix4fv(uniformTranslation, false, translationMat);
+    
+    glUniform1f(uniformViewDist, viewDist);
+    glUniform3fv(uniformFogCol, fogCol);
     
     attribPos = glGetAttribLocation(program, "pos");
     glEnableVertexAttribArray(attribPos);
 
-    attribCol = glGetAttribLocation(program, "col");
-    glEnableVertexAttribArray(attribCol);
+    attribText = glGetAttribLocation(program, "textureCoords");
+    glEnableVertexAttribArray(attribText);
+    
+    loadTextures();
+  }
+  
+  private void loadTextures() {
+    int[] w = new int[1];
+    int[] h = new int[1];
+    int[] comp = new int[1];
+    
+    ByteBuffer image = stbi_load("src/land/textures/blocks.png", w, h, comp, 0);
+    if(image == null) {
+      System.err.println(stbi_failure_reason());
+      System.exit(1);
+    }
+    
+    int textureID = glGenTextures();
+    
+    glBindTexture(GL_TEXTURE_2D, textureID);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w[0], h[0], 0, GL_RGBA, GL_UNSIGNED_BYTE, image);
   }
   
   private void processInput() {
@@ -161,6 +200,12 @@ public class Camera extends Thread {
     
     if(glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) dir |= 8;
     else dir &= ~8;
+    
+    if(glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) dir |= 16;
+    else dir &= ~16;
+    
+    if(glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS) dir |= 32;
+    else dir &= ~32;
     
     if(glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
       glfwSetWindowShouldClose(window, true);
@@ -184,8 +229,6 @@ public class Camera extends Thread {
     
     ready = true;
     
-    glClearColor(0f, 0f, 0f, 1f);
-    
     while (!glfwWindowShouldClose(window)) {
       glfwPollEvents();
       
@@ -194,30 +237,26 @@ public class Camera extends Thread {
       glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
       if(dir != 0) {
-        float sp = (dir & 16) != 0 ? speed * .1f : speed;
-        float x, y, z;
+        float x, z;
 
         if((dir & 3) != 0) {
-          x = (float)(sp * Math.cos(ent.rx) * Math.sin(ent.ry));
-          y = (float)(sp * Math.sin(ent.rx));
-          z = (float)(sp * Math.cos(ent.rx) * Math.cos(ent.ry));
+          x = (float)(speed * Math.sin(ent.ry));
+          z = (float)(speed * Math.cos(ent.ry));
 
           if((dir & 1) != 0) {
             ent.x -= x;
-            ent.y -= y;
             ent.z -= z;
           }
           
           if((dir & 2) != 0) {
             ent.x += x;
-            ent.y += y;
             ent.z += z;
           }
         }
 
         if((dir & 12) != 0) {
-          x = (float)(sp * Math.sin(ent.ry));
-          z = (float)(sp * Math.cos(ent.ry));
+          x = (float)(speed * Math.sin(ent.ry));
+          z = (float)(speed * Math.cos(ent.ry));
 
           if((dir & 4) != 0) {
             ent.x -= z;
@@ -229,23 +268,26 @@ public class Camera extends Thread {
             ent.z -= x;
           }
         }
+        
+        if((dir & 16) != 0) ent.y += speed;
+        if((dir & 32) != 0) ent.y -= speed;
       }
         
       translationMat[12] = -ent.x;
       translationMat[13] = -ent.y;
       translationMat[14] = -ent.z;
 
-      glUniformMatrix4fv(uniforms[0], false, translationMat);
+      glUniformMatrix4fv(uniformTranslation, false, translationMat);
       
       rotationXMat[9] = -(rotationXMat[6] = (float)Math.sin(ent.rx));
       rotationXMat[5] = rotationXMat[10] = (float)Math.cos(ent.rx);
 
-      glUniformMatrix4fv(uniforms[1], false, rotationXMat);
+      glUniformMatrix4fv(uniformRotationX, false, rotationXMat);
       
       rotationYMat[8] = -(rotationYMat[2] = (float)Math.sin(ent.ry));
       rotationYMat[0] = rotationYMat[10] = (float)Math.cos(ent.ry);
 
-      glUniformMatrix4fv(uniforms[2], false, rotationYMat);
+      glUniformMatrix4fv(uniformRotationY, false, rotationYMat);
       
       drawChunks();
       
@@ -272,10 +314,6 @@ public class Camera extends Thread {
     for(int i = 0; i < world.chunks.size(); i++) {
       Chunk chunk = world.chunks.get(i);
       if(chunk == null) continue;
-      
-      if(!chunk.hasBuffs) {
-        chunk.initBuffs();
-      }
       
       chunk.draw();
     }

@@ -1,5 +1,10 @@
-varying vec3 color;
+#version 150 core
+
+uniform sampler2D textImg;
+in vec2 textCoords;
+
+out vec4 fragColor;
 
 void main(){
-  gl_FragColor = vec4(color, 1.);
+  fragColor = texture(textImg, textCoords);
 }

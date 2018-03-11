@@ -3,14 +3,16 @@ package land;
 import java.util.ArrayList;
 
 public class World {
-  public static int chunkWidth = 16;
-  public static int chunkHeight = 256;
-  public static int chunkWidthSquared = chunkWidth * chunkWidth;
-  public static int chunkSize = chunkWidthSquared * chunkHeight;
-  public static int chunkBuffSize = chunkSize;
-  public static int chunkBuffSizeBytes = chunkBuffSize * 4 * Float.BYTES;
+  public static final int chunkWidth = 16;
+  public static final int chunkHeight = 256;
+  public static final int chunkWidthSquared = chunkWidth * chunkWidth;
+  public static final int chunkSize = chunkWidthSquared * chunkHeight;
+  public static final int chunkBuffSize = chunkSize;
+  public static final int chunkBuffSizeBytes = chunkBuffSize * 4 * Float.BYTES;
   
   Game game;
+  
+  public boolean ready = true;
   
   public Player player;
   public Camera camera;
@@ -28,13 +30,8 @@ public class World {
     int chunksNum = 1024;
     
     for(int i = 0; i < chunksNum; i++) {
-      Chunk chunk = new Chunk(this, i % 32, i / 32);
+      Chunk chunk = new Chunk(this, i % 32 - 16, i / 32 - 16);
       chunks.add(chunk);
-    }
-    
-    for(int i = 0; i < chunks.size(); i++) {
-      Chunk chunk = chunks.get(i);
-      chunk.generate();
     }
   }
   
