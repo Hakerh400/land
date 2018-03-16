@@ -1,6 +1,8 @@
 package land;
 
-import java.util.ArrayList;
+import java.nio.FloatBuffer;
+
+import org.lwjgl.BufferUtils;
 
 import static org.lwjgl.opengl.GL11.*;
 import static org.lwjgl.opengl.GL15.*;
@@ -20,12 +22,10 @@ public class Chunk {
   
   public short[] blocks = new short[World.chunkSize];
   
-  public float[] vFaces = new float[World.chunkBuffSize];
-  public float[] cFaces = new float[World.chunkBuffSize];
-  
-  public int facesLen;
+  public boolean needsBuffering;
   public int buffLen;
-  public ArrayList<Integer> buffUpdates = new ArrayList<Integer>();
+  private FloatBuffer vFaces = BufferUtils.createFloatBuffer(World.chunkBuffSize);
+  private FloatBuffer cFaces = BufferUtils.createFloatBuffer(World.chunkBuffSize);
   
   private int vBuff;
   private int cBuff;
@@ -87,6 +87,8 @@ public class Chunk {
   
   public void updateAllFaces() {
     buffLen = 0;
+    vFaces.clear();
+    cFaces.clear();
     
     missingX = world.getBlock(x1 - 1, 0, z1) == -1;
     missingZ = world.getBlock(x1, 0, z1 - 1) == -1;
@@ -94,19 +96,27 @@ public class Chunk {
     for(int y = 0, i = 0; y < World.chunkHeight; y++) {
       for(int z = z1; z < z2; z++) {
         for(int x = x1; x < x2; x++, i++) {
-          updateBlock(x, y, z, i);
+          updateBlockFaces(x, y, z, i);
         }
       }
     }
     
-    facesLen = buffLen / 3;
+    vFaces.position(0);
+    vFaces.limit(buffLen);
     
-    buffUpdates.clear();
-    buffUpdates.add(0);
-    buffUpdates.add(buffLen);
+    cFaces.position(0);
+    cFaces.limit(buffLen);
+    
+    buffLen /= 3;
+    
+    needsBuffering = true;
   }
   
   public void updateBlock(int x, int y, int z, int i) {
+    updateAllFaces();
+  }
+  
+  public void updateBlockFaces(int x, int y, int z, int i) {
     short block = blocks[i];
     
     short adjY = y != 0 ? blocks[i - World.chunkWidthSquared] : -1;
@@ -122,15 +132,15 @@ public class Chunk {
       tx1 = TexturesData.blocks[textureIndex + 2]; ty1 = TexturesData.blocks[textureIndex + 3];
       tx2 = tx1 + TexturesData.increment; ty2 = ty1 + TexturesData.increment;
       
-      vFaces[buffLen] = x; vFaces[buffLen + 1] = y; vFaces[buffLen + 2] = z;
-      vFaces[buffLen + 3] = x + 1; vFaces[buffLen + 4] = y; vFaces[buffLen + 5] = z;
-      vFaces[buffLen + 6] = x + 1; vFaces[buffLen + 7] = y; vFaces[buffLen + 8] = z + 1;
-      vFaces[buffLen + 9] = x; vFaces[buffLen + 10] = y; vFaces[buffLen + 11] = z + 1;
+      vFaces.put(x).put(y).put(z)
+            .put(x + 1).put(y).put(z)
+            .put(x + 1).put(y).put(z + 1)
+            .put(x).put(y).put(z + 1);
       
-      cFaces[buffLen] = tx1; cFaces[buffLen + 1] = ty1; cFaces[buffLen + 2] = 0;
-      cFaces[buffLen + 3] = tx2; cFaces[buffLen + 4] = ty1; cFaces[buffLen + 5] = 0;
-      cFaces[buffLen + 6] = tx2; cFaces[buffLen + 7] = ty2; cFaces[buffLen + 8] = 0;
-      cFaces[buffLen + 9] = tx1; cFaces[buffLen + 10] = ty2; cFaces[buffLen + 11] = 0;
+      cFaces.put(tx1).put(ty1).put(0)
+            .put(tx2).put(ty1).put(0)
+            .put(tx2).put(ty2).put(0)
+            .put(tx1).put(ty2).put(0);
       
       buffLen += 12;
     }
@@ -141,15 +151,15 @@ public class Chunk {
       tx1 = TexturesData.blocks[textureIndex]; ty1 = TexturesData.blocks[textureIndex + 1];
       tx2 = tx1 + TexturesData.increment; ty2 = ty1 + TexturesData.increment;
       
-      vFaces[buffLen] = x + 1; vFaces[buffLen + 1] = y + 1; vFaces[buffLen + 2] = z;
-      vFaces[buffLen + 3] = x; vFaces[buffLen + 4] = y + 1; vFaces[buffLen + 5] = z;
-      vFaces[buffLen + 6] = x; vFaces[buffLen + 7] = y; vFaces[buffLen + 8] = z;
-      vFaces[buffLen + 9] = x + 1; vFaces[buffLen + 10] = y; vFaces[buffLen + 11] = z;
+      vFaces.put(x + 1).put(y + 1).put(z)
+            .put(x).put(y + 1).put(z)
+            .put(x).put(y).put(z)
+            .put(x + 1).put(y).put(z);
       
-      cFaces[buffLen] = tx1; cFaces[buffLen + 1] = ty1; cFaces[buffLen + 2] = 0;
-      cFaces[buffLen + 3] = tx2; cFaces[buffLen + 4] = ty1; cFaces[buffLen + 5] = 0;
-      cFaces[buffLen + 6] = tx2; cFaces[buffLen + 7] = ty2; cFaces[buffLen + 8] = 0;
-      cFaces[buffLen + 9] = tx1; cFaces[buffLen + 10] = ty2; cFaces[buffLen + 11] = 0;
+      cFaces.put(tx1).put(ty1).put(0)
+            .put(tx2).put(ty1).put(0)
+            .put(tx2).put(ty2).put(0)
+            .put(tx1).put(ty2).put(0);
       
       buffLen += 12;
     }
@@ -160,15 +170,15 @@ public class Chunk {
       tx1 = TexturesData.blocks[textureIndex]; ty1 = TexturesData.blocks[textureIndex + 1];
       tx2 = tx1 + TexturesData.increment; ty2 = ty1 + TexturesData.increment;
       
-      vFaces[buffLen] = x; vFaces[buffLen + 1] = y + 1; vFaces[buffLen + 2] = z + 1;
-      vFaces[buffLen + 3] = x; vFaces[buffLen + 4] = y + 1; vFaces[buffLen + 5] = z;
-      vFaces[buffLen + 6] = x; vFaces[buffLen + 7] = y; vFaces[buffLen + 8] = z;
-      vFaces[buffLen + 9] = x; vFaces[buffLen + 10] = y; vFaces[buffLen + 11] = z + 1;
+      vFaces.put(x).put(y + 1).put(z + 1)
+            .put(x).put(y + 1).put(z)
+            .put(x).put(y).put(z)
+            .put(x).put(y).put(z + 1);
       
-      cFaces[buffLen] = tx1; cFaces[buffLen + 1] = ty1; cFaces[buffLen + 2] = 0;
-      cFaces[buffLen + 3] = tx2; cFaces[buffLen + 4] = ty1; cFaces[buffLen + 5] = 0;
-      cFaces[buffLen + 6] = tx2; cFaces[buffLen + 7] = ty2; cFaces[buffLen + 8] = 0;
-      cFaces[buffLen + 9] = tx1; cFaces[buffLen + 10] = ty2; cFaces[buffLen + 11] = 0;
+      cFaces.put(tx1).put(ty1).put(0)
+            .put(tx2).put(ty1).put(0)
+            .put(tx2).put(ty2).put(0)
+            .put(tx1).put(ty2).put(0);
       
       buffLen += 12;
     }
@@ -176,14 +186,16 @@ public class Chunk {
   
   private void updateBuffs() {
     glBindBuffer(GL_ARRAY_BUFFER, vBuff);
-    if(buffUpdates.size() != 0) glBufferSubData(GL_ARRAY_BUFFER, 0, vFaces);
+    if(needsBuffering)
+      glBufferSubData(GL_ARRAY_BUFFER, 0, vFaces);
     glVertexAttribPointer(camera.attribPos, 3, GL_FLOAT, false, 0, 0);
   
     glBindBuffer(GL_ARRAY_BUFFER, cBuff);
-    if(buffUpdates.size() != 0) glBufferSubData(GL_ARRAY_BUFFER, 0, cFaces);
+    if(needsBuffering) {
+      glBufferSubData(GL_ARRAY_BUFFER, 0, cFaces);
+      needsBuffering = false;
+    }
     glVertexAttribPointer(camera.attribText, 3, GL_FLOAT, false, 0, 0);
-    
-    buffUpdates.clear();
   }
   
   public void dispose() {

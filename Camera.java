@@ -2,9 +2,12 @@ package land;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+
+import org.lwjgl.BufferUtils;
 import org.lwjgl.glfw.GLFWErrorCallback;
 import org.lwjgl.glfw.GLFWVidMode;
 import org.lwjgl.opengl.*;
@@ -13,6 +16,12 @@ import org.lwjgl.system.MemoryStack;
 import static org.lwjgl.glfw.Callbacks.*;
 import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.opengl.GL11.*;
+import static org.lwjgl.opengl.GL15.GL_ARRAY_BUFFER;
+import static org.lwjgl.opengl.GL15.GL_DYNAMIC_DRAW;
+import static org.lwjgl.opengl.GL15.glBindBuffer;
+import static org.lwjgl.opengl.GL15.glBufferData;
+import static org.lwjgl.opengl.GL15.glBufferSubData;
+import static org.lwjgl.opengl.GL15.glGenBuffers;
 import static org.lwjgl.opengl.GL20.*;
 import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.system.MemoryUtil.NULL;
@@ -59,11 +68,17 @@ public class Camera extends Thread {
   private int uniformViewDist;
   private int uniformFogCol;
   
-  private float[] translationMat = Matrix.identity();
-  private float[] rotationXMat = Matrix.identity();
-  private float[] rotationYMat = Matrix.identity();
+  private FloatBuffer translationMat = Matrix.identity();
+  private FloatBuffer rotationXMat = Matrix.identity();
+  private FloatBuffer rotationYMat = Matrix.identity();
+  
+  private FloatBuffer vTargetBlockFrame = BufferUtils.createFloatBuffer(3 * 2 * 12);
+  private FloatBuffer cTargetBlockFrame = BufferUtils.createFloatBuffer(3 * 2 * 12);
+  private int vBuffTargetBlockFrame;
+  private int cBuffTargetBlockFrame;
+  
   private float viewDist = far;
-  private float[] fogCol = new float[] {.4f, .7f, .7f};
+  private FloatBuffer fogCol;
   
   public Camera(Entity ent) {
     this.world = ent.world;
@@ -119,9 +134,16 @@ public class Camera extends Thread {
     
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LEQUAL);
+    
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    
+    fogCol = BufferUtils.createFloatBuffer(3);
+    fogCol.put(.4f).put(.7f).put(.7f);
+    fogCol.rewind();
 
     glViewport(0, 0, w, h);
-    glClearColor(fogCol[0], fogCol[1], fogCol[2], 1f);
+    glClearColor(fogCol.get(0), fogCol.get(1), fogCol.get(2), 1f);
 
     vShader = glCreateShader(GL_VERTEX_SHADER);
     glShaderSource(vShader, new StringBuilder(vs));
@@ -165,6 +187,17 @@ public class Camera extends Thread {
     attribText = glGetAttribLocation(program, "textureCoords");
     glEnableVertexAttribArray(attribText);
     
+    vBuffTargetBlockFrame = glGenBuffers();
+    cBuffTargetBlockFrame = glGenBuffers();
+    
+    glBindBuffer(GL_ARRAY_BUFFER, vBuffTargetBlockFrame);
+    glBufferData(GL_ARRAY_BUFFER, vTargetBlockFrame.capacity(), GL_DYNAMIC_DRAW);
+    glVertexAttribPointer(attribPos, 3, GL_FLOAT, false, 0, 0);
+    
+    glBindBuffer(GL_ARRAY_BUFFER, cBuffTargetBlockFrame);
+    glBufferData(GL_ARRAY_BUFFER, cTargetBlockFrame.capacity(), GL_DYNAMIC_DRAW);
+    glVertexAttribPointer(attribText, 3, GL_FLOAT, false, 0, 0);
+    
     loadTextures();
   }
   
@@ -206,6 +239,10 @@ public class Camera extends Thread {
     
     if(glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS) dir |= 32;
     else dir &= ~32;
+    
+    if(glfwGetKey(window, GLFW_KEY_G) == GLFW_PRESS) {
+      
+    }
     
     if(glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
       glfwSetWindowShouldClose(window, true);
@@ -273,23 +310,30 @@ public class Camera extends Thread {
         if((dir & 32) != 0) ent.y -= speed;
       }
         
-      translationMat[12] = -ent.x;
-      translationMat[13] = -ent.y;
-      translationMat[14] = -ent.z;
+      translationMat.put(12, -ent.x);
+      translationMat.put(13, -ent.y);
+      translationMat.put(14, -ent.z);
 
       glUniformMatrix4fv(uniformTranslation, false, translationMat);
       
-      rotationXMat[9] = -(rotationXMat[6] = (float)Math.sin(ent.rx));
-      rotationXMat[5] = rotationXMat[10] = (float)Math.cos(ent.rx);
+      float s, c;
+      
+      s = (float)Math.sin(ent.rx);
+      c = (float)Math.cos(ent.rx);
+      rotationXMat.put(6, s).put(9, -s);
+      rotationXMat.put(5, c).put(10, c);
 
       glUniformMatrix4fv(uniformRotationX, false, rotationXMat);
       
-      rotationYMat[8] = -(rotationYMat[2] = (float)Math.sin(ent.ry));
-      rotationYMat[0] = rotationYMat[10] = (float)Math.cos(ent.ry);
-
+      s = (float)Math.sin(ent.ry);
+      c = (float)Math.cos(ent.ry);
+      rotationYMat.put(2, s).put(8, -s);
+      rotationYMat.put(0, c).put(10, c);
+      
       glUniformMatrix4fv(uniformRotationY, false, rotationYMat);
       
       drawChunks();
+      drawTargetBlockFrame();
       
       glfwSwapBuffers(window);
     }
@@ -310,12 +354,64 @@ public class Camera extends Thread {
   }
   
   private void drawChunks() {
-    
     for(int i = 0; i < world.chunks.size(); i++) {
       Chunk chunk = world.chunks.get(i);
       if(chunk == null) continue;
       
       chunk.draw();
     }
+  }
+  
+  private void drawTargetBlockFrame() {
+    float x = ent.x + 3;
+    float y = ent.y - 3;
+    float z = ent.z + 3;
+    
+    vTargetBlockFrame.clear();
+    cTargetBlockFrame.clear();
+    
+    vTargetBlockFrame
+      .put(x).put(y).put(z).put(x + 1f).put(y).put(z)
+      .put(x).put(y).put(z).put(x).put(y + 1f).put(z)
+      .put(x).put(y).put(z).put(x).put(y).put(z + 1f)
+      .put(x + 1f).put(y).put(z).put(x + 1f).put(y + 1f).put(z)
+      .put(x + 1f).put(y).put(z).put(x + 1f).put(y).put(z + 1f)
+      .put(x).put(y + 1f).put(z).put(x + 1f).put(y + 1f).put(z)
+      .put(x).put(y + 1f).put(z).put(x).put(y + 1f).put(z + 1f)
+      .put(x).put(y).put(z + 1f).put(x + 1f).put(y).put(z + 1f)
+      .put(x).put(y).put(z + 1f).put(x).put(y + 1f).put(z + 1f)
+      .put(x + 1f).put(y + 1f).put(z).put(x + 1f).put(y + 1f).put(z + 1f)
+      .put(x + 1f).put(y).put(z + 1f).put(x + 1f).put(y + 1f).put(z + 1f)
+      .put(x).put(y + 1f).put(z + 1f).put(x + 1f).put(y + 1f).put(z + 1f);
+    
+    cTargetBlockFrame
+      .put(0).put(0).put(0).put(1).put(1).put(0)
+      .put(0).put(0).put(0).put(1).put(1).put(0)
+      .put(0).put(0).put(0).put(1).put(1).put(0)
+      .put(0).put(0).put(0).put(1).put(1).put(0)
+      .put(0).put(0).put(0).put(1).put(1).put(0)
+      .put(0).put(0).put(0).put(1).put(1).put(0)
+      .put(0).put(0).put(0).put(1).put(1).put(0)
+      .put(0).put(0).put(0).put(1).put(1).put(0)
+      .put(0).put(0).put(0).put(1).put(1).put(0)
+      .put(0).put(0).put(0).put(1).put(1).put(0)
+      .put(0).put(0).put(0).put(1).put(1).put(0)
+      .put(0).put(0).put(0).put(1).put(1).put(0);
+    
+    vTargetBlockFrame.position(0);
+    vTargetBlockFrame.limit(vTargetBlockFrame.capacity());
+    
+    cTargetBlockFrame.position(0);
+    cTargetBlockFrame.limit(cTargetBlockFrame.capacity());
+    
+    glBindBuffer(GL_ARRAY_BUFFER, vBuffTargetBlockFrame);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, vTargetBlockFrame);
+    glVertexAttribPointer(attribPos, 3, GL_FLOAT, false, 0, 0);
+  
+    glBindBuffer(GL_ARRAY_BUFFER, cBuffTargetBlockFrame);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, cTargetBlockFrame);
+    glVertexAttribPointer(attribText, 3, GL_FLOAT, false, 0, 0);
+    
+    glDrawArrays(GL_LINES, 0, vTargetBlockFrame.capacity() / 3);
   }
 }

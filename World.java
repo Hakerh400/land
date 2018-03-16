@@ -62,6 +62,24 @@ public class World {
     return chunk.blocks[i];
   }
   
+  public int setBlock(int x, int y, int z, short blockID) {
+    Chunk chunk = getChunk(x, z);
+    if(chunk == null || !chunk.ready) return 1;
+    
+    x %= chunkWidth;
+    z %= chunkWidth;
+    
+    if(x < 0) x += chunkWidth;
+    if(z < 0) z += chunkWidth;
+    
+    int i = y * chunkWidthSquared + z * chunkWidth + x;
+    
+    chunk.blocks[i] = blockID;
+    chunk.updateBlock(x, y, z, i);
+    
+    return 0;
+  }
+  
   public void dispose() {
     for(int i = 0; i < chunks.size(); i++) {
       Chunk chunk = chunks.get(i);

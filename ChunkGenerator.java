@@ -4,6 +4,12 @@ public class ChunkGenerator extends Thread {
   public World world;
   public Chunk chunk;
   
+  private static double seed[] = new double[5];
+  static {
+    for(int i = 0; i < seed.length; i++)
+      seed[i] = Math.random() * 5 - 2.5;
+  }
+  
   public ChunkGenerator(Chunk chunk) {
     this.world = chunk.world;
     this.chunk = chunk;
@@ -24,13 +30,13 @@ public class ChunkGenerator extends Thread {
         for(int x = x1; x < x2; x++, i++) {
           short id = 0;
           
-          double xx = Math.sin((z + 7) / 20.) * 5. +
-              Math.cos((z + x) / 24.7) * 5. * 14.7 / 20. +
-              Math.sin(x / 7.3) * 5. * 7.3 / 20.;
+          double xx = Math.sin((z + seed[0]) / 20.) * 5. +
+              Math.cos((z + x) / (24.7 + seed[1])) * 5. * 14.7 / 20. +
+              Math.sin(x / 7.3 + seed[2]) * 5. * 7.3 / 20.;
           
-          double zz = Math.cos((x - z * 1.2 + 3) / 43.) * 5. +
+          double zz = Math.cos((x - z * 1.2 + 3 * seed[3]) / 43.) * 5. +
               Math.cos(-x / 24.2) * 5. * 14.7 / 20. +
-              Math.cos(z / 8.1) * 5. * 7.4 / 20.;
+              Math.cos(z / (8.1 + seed[4])) * 5. * 7.4 / 20.;
           
           int k = (int)Math.round(100. + xx + zz);
           

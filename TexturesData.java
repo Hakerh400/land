@@ -9,11 +9,11 @@ public class TexturesData {
   
   static {
     blocks = new float[] {
-      0, 0, 0, 0,   // Air
-      3, 10, 6, 10, // Grass
-      15, 1, 15, 1, // Dirt
-      6, 18, 6, 18, // Stone
-      5, 0, 5, 0,   // Bedrock
+      0, 0, 0, 0,   // 00 - Air
+      3, 10, 6, 10, // 01 - Grass
+      15, 1, 15, 1, // 02 - Dirt
+      6, 18, 6, 18, // 03 - Stone
+      5, 0, 5, 0,   // 04 - Bedrock
     };
     
     for(int i = 0; i < blocks.length; i++) {
